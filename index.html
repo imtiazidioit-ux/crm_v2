@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Property Deals - Live Lead Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; }
+        .loader { border: 4px solid #e5e7eb; border-top: 4px solid #1d4ed8; border-radius: 50%; width: 28px; height: 28px; animation: spin 0.8s linear infinite; display: inline-block; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // ✅ YOUR LIVE GOOGLE APPS SCRIPT WEB APP URL IS CONNECTED BELOW
+        const API_URL = "https://script.google.com/macros/s/AKfycbxyvjO-SOOCyKY8L4sPTx9FjPBb8qIRvz46Inil4PzM6CmYZTfdp5y1yk9ZQ73ixTxF/exec";
+
+        const { useState, useEffect } = React;
+
+        const userPins = {
+            "Nusrat": "1111",
+            "Jannat": "2222",
+            "Tanvir": "3333",
+            "Admin": "9999"
+        };
+
+        const statuses = [
+            "New Leads",
+            "Not Answered",
+            "Asked to Call Later",
+            "Busy Right Now",
+            "Needs Follow-Up",
+            "Said Yes to Join Seminar",
+            "Not Interested",
+            "Joined Seminar",
+            "Paying Partner"
+        ];
+
+        function formatDhakaDate(isoStr) {
+            if (!isoStr) return "";
+            const d = new Date(isoStr);
+            if (isNaN(d.getTime())) return String(isoStr);
+            return d.toLocaleString("en-US", {
+                timeZone: "Asia/Dhaka",
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+                hour12: true
+            });
+        }
+
+        function App() {
+            // Persistent login so refreshing the page never logs out the user
+            const [user, setUser] = useState(() => localStorage.getItem("pd_crm_user") || null);
+            const [loginName, setLoginName] = useState("Nusrat");
+            const [pin, setPin] = useState("");
+            const [loginError, setLoginError] = useState("");
+
+            const [leads, setLeads] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [syncBadge, setSyncBadge] = useState("");
+            const [activeTab, setActiveTab] = useState("New Leads");
+            const [searchTerm, setSearchTerm] = useState("");
+            const [copiedReport, setCopiedReport] = useState(false);
+
+            // Admin financial inputs for plain-English Boss Report (saved in localStorage)
+            const [nusratSpend, setNusratSpend] = useState(() => localStorage.getItem("pd_nusrat_spend") || "30.00");
+            const [jannatSpend, setJannatSpend] = useState(() => localStorage.getItem("pd_jannat_spend") || "10.00");
+
+            const fetchLeads = (currentUser) => {
+                if (!currentUser) return;
+                setLoading(true);
+                fetch(`${API_URL}?agent=${encodeURIComponent(currentUser)}&_t=${Date.now()}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.leads) {
+                            const activeOnly = data.leads
+                                .filter(l => l.status && String(l.status).trim() !== "Archived")
+                                .sort((a, b) => new Date(b.createdTime || 0) - new Date(a.createdTime || 0));
+                            setLeads(activeOnly);
+                        }
+                        setLoading(false);
+                    })
+                    .catch(err => {
+                        console.error("Error fetching leads:", err);
+                        setSyncBadge("❌ Connection Error - Check Script Deployment");
+                        setLoading(false);
+                    });
+            };
+
+            useEffect(() => {
+                if (user) fetchLeads(user);
+            }, [user]);
+
+            const handleLogin = (e) => {
+                e.preventDefault();
+                if (userPins[loginName] === pin) {
+                    localStorage.setItem("pd_crm_user", loginName);
+                    setUser(loginName);
+                    setPin("");
+                    setLoginError("");
+                } else {
+                    setLoginError("Incorrect PIN. Please try again.");
+                }
+            };
+
+            const handleLogout = () => {
+                localStorage.removeItem("pd_crm_user");
+                setUser(null);
+                setLeads([]);
+            };
+
+            // Live real-time update to Google Sheet via GET parameters + POST fallback
+            const updateLeadField = (id, updates) => {
+                setLeads(prev => prev.map(l => l.id === id ? { ...l, ...updates } : l));
+                setSyncBadge("⏳ Saving to Master Sheet...");
+
+                const params = new URLSearchParams({ action: "update", id: id, _t: Date.now() });
+                if (updates.status !== undefined) params.append("status", updates.status);
+                if (updates.notes !== undefined) params.append("notes", updates.notes);
+                if (updates.followUpTime !== undefined) params.append("followUpTime", updates.followUpTime);
+                if (updates.agent !== undefined) params.append("agent", updates.agent);
+
+                fetch(`${API_URL}?${params.toString()}`)
+                    .then(res => res.json())
+                    .then(result => {
+                        if (result && result.updated > 0) {
+                            setSyncBadge(`✅ Saved to Sheet (Row #${result.rowNumber})`);
+                        } else {
+                            // Automatic POST fallback if Apps Script hasn't been redeployed with New Version yet
+                            fetch(API_URL, {
+                                method: "POST",
+                                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                                body: JSON.stringify({ id: id, ...updates })
+                            }).then(() => {
+                                setSyncBadge("✅ Saved to Sheet");
+                            });
+                        }
+                        setTimeout(() => setSyncBadge(""), 3500);
+                    })
+                    .catch(err => {
+                        console.error("Error updating sheet:", err);
+                        setSyncBadge("❌ Sync Error - Redeploy Script as New Version");
+                    });
+            };
+
+            // 1. LOGIN SCREEN
+            if (!user) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center p-4">
+                        <div className="bg-white p-8 rounded-2xl shadow-lg max-w-sm w-full border border-gray-100">
+                            <h1 className="text-2xl font-extrabold text-blue-900 mb-1 text-center">Property Deals BD</h1>
+                            <p className="text-xs text-gray-500 text-center mb-6">Call Center & Follow-Up Portal</p>
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Select Account</label>
+                                    <select className="w-full border border-gray-300 rounded-xl p-3 font-semibold bg-gray-50" value={loginName} onChange={(e) => setLoginName(e.target.value)}>
+                                        <option value="Nusrat">🎧 Nusrat (Agent 1)</option>
+                                        <option value="Jannat">🎧 Jannat (Agent 2)</option>
+                                        <option value="Tanvir">🎧 Tanvir (Agent 3)</option>
+                                        <option value="Admin">👑 Boss / Admin</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">4-Digit Security PIN</label>
+                                    <input type="password" className="w-full border border-gray-300 rounded-xl p-3 text-center text-xl tracking-widest bg-gray-50" maxLength="4" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="••••" required />
+                                </div>
+                                {loginError && <p className="text-red-600 text-sm font-bold text-center">{loginError}</p>}
+                                <button type="submit" className="w-full bg-blue-700 text-white py-3 rounded-xl font-bold hover:bg-blue-800 shadow">Login to Workspace</button>
+                            </form>
+                        </div>
+                    </div>
+                );
+            }
+
+            // 2. LOADING SCREEN
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex flex-col items-center justify-center">
+                        <div className="loader mb-4"></div>
+                        <p className="text-gray-700 font-bold">Syncing Live Leads from Master Sheet...</p>
+                    </div>
+                );
+            }
+
+            const followUpGroup = ["Asked to Call Later", "Busy Right Now", "Needs Follow-Up"];
+
+            // 3. BOSS / ADMIN DASHBOARD
+            if (user === "Admin") {
+                const countBy = (agentName, statusList) =>
+                    leads.filter(l => (agentName ? l.agent === agentName : true) && statusList.includes(l.status)).length;
+
+                const totalLeads = leads.length;
+                const totalNew = countBy(null, ["New Leads"]);
+                const totalNoAns = countBy(null, ["Not Answered"]);
+                const totalCallLater = countBy(null, ["Asked to Call Later"]);
+                const totalBusy = countBy(null, ["Busy Right Now"]);
+                const totalNeedsFollowUp = countBy(null, ["Needs Follow-Up"]);
+                const totalFollowUpPool = totalCallLater + totalBusy + totalNeedsFollowUp;
+                const totalNotInt = countBy(null, ["Not Interested"]);
+                const totalYes = countBy(null, ["Said Yes to Join Seminar", "Joined Seminar", "Paying Partner"]);
+                const totalJoined = countBy(null, ["Joined Seminar", "Paying Partner"]);
+                const totalPartners = countBy(null, ["Paying Partner"]);
+                const totalContacted = totalNotInt + totalFollowUpPool + totalYes;
+
+                const nSpend = parseFloat(nusratSpend) || 0;
+                const jSpend = parseFloat(jannatSpend) || 0;
+                const totalSpend = nSpend + jSpend;
+
+                const nLeads = leads.filter(l => l.agent === "Nusrat").length;
+                const jLeads = leads.filter(l => l.agent === "Jannat").length;
+                const nYes = countBy("Nusrat", ["Said Yes to Join Seminar", "Joined Seminar", "Paying Partner"]);
+                const jYes = countBy("Jannat", ["Said Yes to Join Seminar", "Joined Seminar", "Paying Partner"]);
+
+                const costPerYes = totalYes > 0 ? (totalSpend / totalYes).toFixed(2) : "0.00";
+                const nCostPerYes = nYes > 0 ? (nSpend / nYes).toFixed(2) : "0.00";
+                const jCostPerYes = jYes > 0 ? (jSpend / jYes).toFixed(2) : "0.00";
+                const costPerAttendee = totalJoined > 0 ? (totalSpend / totalJoined).toFixed(2) : "0.00";
+                const packageMoney = (totalPartners * 100).toFixed(2);
+
+                const plainBossReport = `📊 DAILY BUSINESS & SEMINAR REPORT
+━━━━━━━━━━━━━━━━━━━━━━
+💰 1. AD MONEY SPENT VS. MONEY MADE:
+• Total Ad Money Spent: $${totalSpend.toFixed(2)}
+• Paying Partners Converted ($100 Fee): ${totalPartners} Partners ($${packageMoney})
+
+📢 2. HOW MANY SAID "YES" TO SEMINAR & WHICH CAMPAIGN:
+• Total Said "Yes" to Join Seminar: ${totalYes} People (Cost: $${costPerYes} per Yes)
+  1) Nusrat's Campaign (Gulshan $30 ABO):
+     Spent $${nSpend.toFixed(2)} → ${nLeads} Leads → ${nYes} Said Yes ($${nCostPerYes} per Yes)
+  2) Jannat's Campaign (Jabiya $10 Crore):
+     Spent $${jSpend.toFixed(2)} → ${jLeads} Leads → ${jYes} Said Yes ($${jCostPerYes} per Yes)
+
+🎟️ 3. SEMINAR ATTENDANCE:
+• Actually Joined the Seminar: ${totalJoined} People
+• Ad Cost per Person Who Joined Seminar: $${costPerAttendee}
+
+📞 4. FULL CALL CENTER BREAKDOWN (${totalLeads} Active Leads):
+• Spoke on Phone (Contacted): ${totalContacted} | Did Not Answer: ${totalNoAns} | Still New: ${totalNew}
+• Said Yes to Join Seminar: ${totalYes}
+• Active Follow-Up Pool (${totalFollowUpPool} Total): ${totalCallLater} Asked to Call Later | ${totalBusy} Busy | ${totalNeedsFollowUp} Need Follow-Up
+• Not Interested: ${totalNotInt}`;
+
+                const copyBossReport = () => {
+                    navigator.clipboard.writeText(plainBossReport);
+                    setCopiedReport(true);
+                    setTimeout(() => setCopiedReport(false), 2500);
+                };
+
+                return (
+                    <div className="p-4 max-w-3xl mx-auto pb-16">
+                        <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-xl shadow-sm">
+                            <div>
+                                <h1 className="text-xl font-bold text-gray-900">👑 Boss & Admin Command Center</h1>
+                                {syncBadge ? <p className="text-xs font-bold text-green-700">{syncBadge}</p> : <p className="text-xs text-gray-500">Live Connected to Property Deals LEADS Master Sheet</p>}
+                            </div>
+                            <div className="flex space-x-2">
+                                <button onClick={() => fetchLeads(user)} className="text-sm bg-blue-50 text-blue-700 font-bold px-3 py-1.5 rounded-lg border border-blue-200">🔄 Refresh</button>
+                                <button onClick={handleLogout} className="text-sm text-red-600 font-bold bg-red-50 px-3 py-1.5 rounded-lg border border-red-200">Logout</button>
+                            </div>
+                        </div>
+
+                        {/* Top Summary Cards */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                            <div className="bg-white p-3 rounded-xl shadow-sm border-l-4 border-red-500">
+                                <p className="text-xs text-gray-500 font-bold uppercase">New (Untouched)</p>
+                                <p className="text-2xl font-extrabold text-red-600">{totalNew}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded-xl shadow-sm border-l-4 border-orange-500">
+                                <p className="text-xs text-gray-500 font-bold uppercase">Follow-Up Pool</p>
+                                <p className="text-2xl font-extrabold text-orange-600">{totalFollowUpPool}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded-xl shadow-sm border-l-4 border-green-600">
+                                <p className="text-xs text-gray-500 font-bold uppercase">Said YES (Seminar)</p>
+                                <p className="text-2xl font-extrabold text-green-700">{totalYes}</p>
+                            </div>
+                            <div className="bg-white p-3 rounded-xl shadow-sm border-l-4 border-blue-700">
+                                <p className="text-xs text-gray-500 font-bold uppercase">Paying Partners</p>
+                                <p className="text-2xl font-extrabold text-blue-900">{totalPartners}</p>
+                            </div>
+                        </div>
+
+                        {/* 3-Agent Scoreboard across all 8 statuses */}
+                        <div className="bg-white p-4 rounded-xl shadow-sm mb-6 overflow-x-auto">
+                            <h2 className="font-bold text-gray-800 mb-3">Live Agent Call Tracking (All 8 Outcomes)</h2>
+                            <table className="w-full text-xs sm:text-sm text-left border-collapse">
+                                <thead>
+                                    <tr className="border-b bg-gray-50 text-gray-600 uppercase text-[11px]">
+                                        <th className="p-2">Agent</th>
+                                        <th className="p-2">Total</th>
+                                        <th className="p-2 text-red-600">New</th>
+                                        <th className="p-2">No Ans</th>
+                                        <th className="p-2 text-orange-600">Call Later</th>
+                                        <th className="p-2 text-orange-600">Busy</th>
+                                        <th className="p-2 text-orange-600">Follow-Up</th>
+                                        <th className="p-2">Not Int.</th>
+                                        <th className="p-2 text-green-700">Said YES</th>
+                                        <th className="p-2 text-blue-800">Partner</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {["Nusrat", "Jannat", "Tanvir", "Unassigned"].map(ag => {
+                                        const agTotal = leads.filter(l => l.agent === ag).length;
+                                        if (ag === "Unassigned" && agTotal === 0) return null;
+                                        return (
+                                            <tr key={ag} className="border-b hover:bg-gray-50">
+                                                <td className="p-2 font-bold text-gray-900">{ag}</td>
+                                                <td className="p-2 font-bold">{agTotal}</td>
+                                                <td className="p-2 text-red-600 font-bold">{countBy(ag, ["New Leads"])}</td>
+                                                <td className="p-2">{countBy(ag, ["Not Answered"])}</td>
+                                                <td className="p-2 text-orange-600 font-semibold">{countBy(ag, ["Asked to Call Later"])}</td>
+                                                <td className="p-2 text-orange-600 font-semibold">{countBy(ag, ["Busy Right Now"])}</td>
+                                                <td className="p-2 text-orange-600 font-semibold">{countBy(ag, ["Needs Follow-Up"])}</td>
+                                                <td className="p-2 text-gray-500">{countBy(ag, ["Not Interested"])}</td>
+                                                <td className="p-2 text-green-700 font-bold">{countBy(ag, ["Said Yes to Join Seminar"])}</td>
+                                                <td className="p-2 text-blue-800 font-bold">{countBy(ag, ["Paying Partner"])}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Plain-Language Boss Report Generator */}
+                        <div className="bg-gray-900 text-white p-5 rounded-xl shadow-md">
+                            <div className="flex justify-between items-center mb-3">
+                                <h2 className="font-bold text-base">📲 Plain-Language Boss Report (USD)</h2>
+                                <button onClick={copyBossReport} className="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
+                                    {copiedReport ? "✅ Copied!" : "📋 Copy for WhatsApp"}
+                                </button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 mb-3 text-xs">
+                                <div>
+                                    <label className="text-gray-400 block mb-1">Nusrat Campaign Spend ($ USD)</label>
+                                    <input type="number" step="0.01" value={nusratSpend} onChange={e => { setNusratSpend(e.target.value); localStorage.setItem("pd_nusrat_spend", e.target.value); }} className="w-full bg-gray-800 border border-gray-700 rounded p-1.5 text-white font-bold" />
+                                </div>
+                                <div>
+                                    <label className="text-gray-400 block mb-1">Jannat Campaign Spend ($ USD)</label>
+                                    <input type="number" step="0.01" value={jannatSpend} onChange={e => { setJannatSpend(e.target.value); localStorage.setItem("pd_jannat_spend", e.target.value); }} className="w-full bg-gray-800 border border-gray-700 rounded p-1.5 text-white font-bold" />
+                                </div>
+                            </div>
+                            <pre className="text-xs text-gray-200 font-mono whitespace-pre-wrap bg-gray-800 p-3 rounded-lg border border-gray-700">
+                                {plainBossReport}
+                            </pre>
+                        </div>
+                    </div>
+                );
+            }
+
+            // 4. AGENT VIEW (Nusrat, Jannat, Tanvir)
+            const counts = {
+                newLeads: leads.filter(l => l.status === "New Leads").length,
+                followUp: leads.filter(l => followUpGroup.includes(l.status)).length,
+                notAnswered: leads.filter(l => l.status === "Not Answered").length,
+                seminarYes: leads.filter(l => l.status === "Said Yes to Join Seminar" || l.status === "Joined Seminar" || l.status === "Paying Partner").length
+            };
+
+            const filteredLeads = leads.filter(l => {
+                if (searchTerm) {
+                    const q = searchTerm.toLowerCase();
+                    return String(l.name || "").toLowerCase().includes(q) || String(l.phone || "").toLowerCase().includes(q);
+                }
+                if (activeTab === "New Leads") return l.status === "New Leads";
+                if (activeTab === "Follow-Up") return followUpGroup.includes(l.status);
+                if (activeTab === "Not Answered") return l.status === "Not Answered";
+                if (activeTab === "Seminar Yes") return l.status === "Said Yes to Join Seminar" || l.status === "Joined Seminar" || l.status === "Paying Partner";
+                if (activeTab === "Not Interested") return l.status === "Not Interested";
+                return true;
+            });
+
+            return (
+                <div className="p-4 max-w-md mx-auto pb-16">
+                    <div className="flex justify-between items-center mb-4 bg-white p-3 rounded-xl shadow-sm">
+                        <div>
+                            <h1 className="text-lg font-bold text-blue-900">🎧 {user}'s Queue</h1>
+                            {syncBadge ? (
+                                <p className="text-xs font-bold text-green-700">{syncBadge}</p>
+                            ) : (
+                                <p className="text-xs text-gray-500">Auto-saves every change to Master Sheet</p>
+                            )}
+                        </div>
+                        <div className="flex space-x-2">
+                            <button onClick={() => fetchLeads(user)} className="text-xs bg-blue-50 text-blue-700 font-bold px-2.5 py-1.5 rounded-lg border border-blue-200">🔄 Sync</button>
+                            <button onClick={handleLogout} className="text-xs text-red-600 font-bold bg-red-50 px-2.5 py-1.5 rounded-lg border border-red-200">Logout</button>
+                        </div>
+                    </div>
+
+                    {/* 4 Main Queue Buckets */}
+                    <div className="grid grid-cols-4 gap-2 mb-4">
+                        <button onClick={() => setActiveTab("New Leads")} className={`p-2 rounded-xl text-center border transition ${activeTab === "New Leads" ? "bg-red-600 text-white border-red-600 shadow" : "bg-white text-red-700 border-red-200"}`}>
+                            <p className="text-[10px] uppercase font-bold">New</p>
+                            <p className="text-lg font-extrabold">{counts.newLeads}</p>
+                        </button>
+                        <button onClick={() => setActiveTab("Follow-Up")} className={`p-2 rounded-xl text-center border transition ${activeTab === "Follow-Up" ? "bg-orange-500 text-white border-orange-500 shadow" : "bg-white text-orange-700 border-orange-200"}`}>
+                            <p className="text-[10px] uppercase font-bold">Follow-Up</p>
+                            <p className="text-lg font-extrabold">{counts.followUp}</p>
+                        </button>
+                        <button onClick={() => setActiveTab("Not Answered")} className={`p-2 rounded-xl text-center border transition ${activeTab === "Not Answered" ? "bg-gray-700 text-white border-gray-700 shadow" : "bg-white text-gray-700 border-gray-200"}`}>
+                            <p className="text-[10px] uppercase font-bold">No Ans</p>
+                            <p className="text-lg font-extrabold">{counts.notAnswered}</p>
+                        </button>
+                        <button onClick={() => setActiveTab("Seminar Yes")} className={`p-2 rounded-xl text-center border transition ${activeTab === "Seminar Yes" ? "bg-green-600 text-white border-green-600 shadow" : "bg-white text-green-700 border-green-200"}`}>
+                            <p className="text-[10px] uppercase font-bold">Said Yes</p>
+                            <p className="text-lg font-extrabold">{counts.seminarYes}</p>
+                        </button>
+                    </div>
+
+                    <input
+                        type="text"
+                        placeholder="🔍 Search lead by name or phone..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full bg-white border border-gray-300 rounded-xl px-3 py-2 text-sm mb-4 outline-none"
+                    />
+
+                    <div className="flex justify-between items-center mb-2">
+                        <h2 className="font-bold text-gray-700 text-sm">{activeTab} ({filteredLeads.length})</h2>
+                        <button onClick={() => setActiveTab("Not Interested")} className="text-xs text-gray-500 underline">View Not Interested</button>
+                    </div>
+
+                    <div className="space-y-3">
+                        {filteredLeads.map(lead => (
+                            <div key={lead.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                                <div className="flex justify-between items-start mb-1">
+                                    <div>
+                                        <p className="font-bold text-base text-gray-900">{lead.name || "Unknown Name"}</p>
+                                        <p className="text-sm text-blue-600 font-mono font-bold">{lead.phone}</p>
+                                    </div>
+                                    <span className="text-[11px] font-semibold px-2 py-0.5 bg-gray-100 rounded text-gray-600">
+                                        Row #{lead.rowNumber} • {formatDhakaDate(lead.createdTime)}
+                                    </span>
+                                </div>
+
+                                <div className="text-xs text-gray-600 space-y-0.5 mt-2 bg-gray-50 p-2 rounded-lg">
+                                    {lead.jobTitle && <p>💼 <span className="font-semibold">Profession:</span> {lead.jobTitle}</p>}
+                                    {lead.location && <p>📍 <span className="font-semibold">Location:</span> {lead.location}</p>}
+                                    {lead.seminarInfo && <p>🎟️ <span className="font-semibold">Form Reply:</span> {lead.seminarInfo}</p>}
+                                    {lead.campaign && <p className="text-[10px] text-gray-400 truncate">📢 {lead.campaign}</p>}
+                                </div>
+
+                                <div className="flex space-x-2 mt-3">
+                                    <a href={`tel:${lead.phone}`} className="flex-1 bg-green-600 hover:bg-green-700 text-white text-center py-2.5 rounded-lg font-bold text-sm shadow-sm">
+                                        📞 Call
+                                    </a>
+                                    <select
+                                        className="flex-[2] bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg p-2 font-semibold outline-none"
+                                        value={lead.status}
+                                        onChange={(e) => updateLeadField(lead.id, { status: e.target.value })}
+                                    >
+                                        {statuses.map(s => (
+                                            <option key={s} value={s}>{s}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Follow-Up Time & Notes Inputs */}
+                                <div className="grid grid-cols-1 gap-2 mt-2">
+                                    <input
+                                        type="text"
+                                        placeholder="⏰ Callback Time (e.g. Tomorrow 5 PM) - click outside to save"
+                                        defaultValue={lead.followUpTime || ""}
+                                        onBlur={(e) => {
+                                            if (e.target.value !== (lead.followUpTime || "")) {
+                                                updateLeadField(lead.id, { followUpTime: e.target.value });
+                                            }
+                                        }}
+                                        className="w-full text-xs border border-orange-200 rounded-lg px-2.5 py-1.5 text-gray-800 bg-orange-50/40 outline-none focus:border-orange-500"
+                                    />
+                                    <input
+                                        type="text"
+                                        placeholder="📝 Call Note / Reason - click outside box to save..."
+                                        defaultValue={lead.notes || ""}
+                                        onBlur={(e) => {
+                                            if (e.target.value !== (lead.notes || "")) {
+                                                updateLeadField(lead.id, { notes: e.target.value });
+                                            }
+                                        }}
+                                        className="w-full text-xs border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-700 bg-gray-50 outline-none focus:border-blue-400"
+                                    />
+                                </div>
+                            </div>
+                        ))}
+
+                        {filteredLeads.length === 0 && (
+                            <div className="text-center bg-white p-8 rounded-xl border border-dashed border-gray-300 mt-4">
+                                <p className="text-gray-500 font-bold text-sm">No leads in "{activeTab}" right now! 🎉</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
