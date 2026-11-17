@@ -25,8 +25,8 @@
 
         const userPins = {
             "Nusrat": "1111",
-            "Jannat": "2222",
-            "Tanvir": "3333",
+            "Hasan": "2222",
+            "Russel": "3333",
             "Admin": "9999"
         };
 
@@ -36,7 +36,9 @@
             "Asked to Call Later",
             "Busy Right Now",
             "Needs Follow-Up",
-            "Said Yes to Join Seminar",
+            "Confirm",
+            "Reconfirm",
+            "Seminar",
             "Not Interested",
             "Joined Seminar",
             "Paying Partner"
@@ -72,7 +74,7 @@
 
             // Admin financial inputs for plain-English Boss Report (saved in localStorage)
             const [nusratSpend, setNusratSpend] = useState(() => localStorage.getItem("pd_nusrat_spend") || "30.00");
-            const [jannatSpend, setJannatSpend] = useState(() => localStorage.getItem("pd_jannat_spend") || "10.00");
+            const [hasanSpend, setHasanSpend] = useState(() => localStorage.getItem("pd_hasan_spend") || "10.00");
 
             const fetchLeads = (currentUser) => {
                 if (!currentUser) return;
@@ -163,8 +165,8 @@
                                     <label className="block text-sm font-bold text-gray-700 mb-1">Select Account</label>
                                     <select className="w-full border border-gray-300 rounded-xl p-3 font-semibold bg-gray-50" value={loginName} onChange={(e) => setLoginName(e.target.value)}>
                                         <option value="Nusrat">🎧 Nusrat (Agent 1)</option>
-                                        <option value="Jannat">🎧 Jannat (Agent 2)</option>
-                                        <option value="Tanvir">🎧 Tanvir (Agent 3)</option>
+                                        <option value="Hasan">🎧 Hasan (Agent 2)</option>
+                                        <option value="Russel">🎧 Russel (Agent 3)</option>
                                         <option value="Admin">👑 Boss / Admin</option>
                                     </select>
                                 </div>
@@ -205,19 +207,19 @@
                 const totalNeedsFollowUp = countBy(null, ["Needs Follow-Up"]);
                 const totalFollowUpPool = totalCallLater + totalBusy + totalNeedsFollowUp;
                 const totalNotInt = countBy(null, ["Not Interested"]);
-                const totalYes = countBy(null, ["Said Yes to Join Seminar", "Joined Seminar", "Paying Partner"]);
+                const totalYes = countBy(null, ["Confirm", "Reconfirm", "Seminar", "Joined Seminar", "Paying Partner"]);
                 const totalJoined = countBy(null, ["Joined Seminar", "Paying Partner"]);
                 const totalPartners = countBy(null, ["Paying Partner"]);
                 const totalContacted = totalNotInt + totalFollowUpPool + totalYes;
 
                 const nSpend = parseFloat(nusratSpend) || 0;
-                const jSpend = parseFloat(jannatSpend) || 0;
+                const jSpend = parseFloat(hasanSpend) || 0;
                 const totalSpend = nSpend + jSpend;
 
                 const nLeads = leads.filter(l => l.agent === "Nusrat").length;
-                const jLeads = leads.filter(l => l.agent === "Jannat").length;
-                const nYes = countBy("Nusrat", ["Said Yes to Join Seminar", "Joined Seminar", "Paying Partner"]);
-                const jYes = countBy("Jannat", ["Said Yes to Join Seminar", "Joined Seminar", "Paying Partner"]);
+                const jLeads = leads.filter(l => l.agent === "Hasan").length;
+                const nYes = countBy("Nusrat", ["Confirm", "Reconfirm", "Seminar", "Joined Seminar", "Paying Partner"]);
+                const jYes = countBy("Hasan", ["Confirm", "Reconfirm", "Seminar", "Joined Seminar", "Paying Partner"]);
 
                 const costPerYes = totalYes > 0 ? (totalSpend / totalYes).toFixed(2) : "0.00";
                 const nCostPerYes = nYes > 0 ? (nSpend / nYes).toFixed(2) : "0.00";
@@ -231,12 +233,12 @@
 • Total Ad Money Spent: $${totalSpend.toFixed(2)}
 • Paying Partners Converted ($100 Fee): ${totalPartners} Partners ($${packageMoney})
 
-📢 2. HOW MANY SAID "YES" TO SEMINAR & WHICH CAMPAIGN:
-• Total Said "Yes" to Join Seminar: ${totalYes} People (Cost: $${costPerYes} per Yes)
+📢 2. HOW MANY CONFIRMED FOR SEMINAR & WHICH CAMPAIGN:
+• Total Confirmed for Seminar: ${totalYes} People (Cost: $${costPerYes} per Confirm)
   1) Nusrat's Campaign (Gulshan $30 ABO):
-     Spent $${nSpend.toFixed(2)} → ${nLeads} Leads → ${nYes} Said Yes ($${nCostPerYes} per Yes)
-  2) Jannat's Campaign (Jabiya $10 Crore):
-     Spent $${jSpend.toFixed(2)} → ${jLeads} Leads → ${jYes} Said Yes ($${jCostPerYes} per Yes)
+     Spent $${nSpend.toFixed(2)} → ${nLeads} Leads → ${nYes} Confirmed ($${nCostPerYes} per Confirm)
+  2) Hasan's Campaign (Jabiya $10 Crore):
+     Spent $${jSpend.toFixed(2)} → ${jLeads} Leads → ${jYes} Confirmed ($${jCostPerYes} per Confirm)
 
 🎟️ 3. SEMINAR ATTENDANCE:
 • Actually Joined the Seminar: ${totalJoined} People
@@ -244,7 +246,7 @@
 
 📞 4. FULL CALL CENTER BREAKDOWN (${totalLeads} Active Leads):
 • Spoke on Phone (Contacted): ${totalContacted} | Did Not Answer: ${totalNoAns} | Still New: ${totalNew}
-• Said Yes to Join Seminar: ${totalYes}
+• Confirmed for Seminar: ${totalYes}
 • Active Follow-Up Pool (${totalFollowUpPool} Total): ${totalCallLater} Asked to Call Later | ${totalBusy} Busy | ${totalNeedsFollowUp} Need Follow-Up
 • Not Interested: ${totalNotInt}`;
 
@@ -278,7 +280,7 @@
                                 <p className="text-2xl font-extrabold text-orange-600">{totalFollowUpPool}</p>
                             </div>
                             <div className="bg-white p-3 rounded-xl shadow-sm border-l-4 border-green-600">
-                                <p className="text-xs text-gray-500 font-bold uppercase">Said YES (Seminar)</p>
+                                <p className="text-xs text-gray-500 font-bold uppercase">Confirmed (Seminar)</p>
                                 <p className="text-2xl font-extrabold text-green-700">{totalYes}</p>
                             </div>
                             <div className="bg-white p-3 rounded-xl shadow-sm border-l-4 border-blue-700">
@@ -287,9 +289,9 @@
                             </div>
                         </div>
 
-                        {/* 3-Agent Scoreboard across all 8 statuses */}
+                        {/* 3-Agent Scoreboard across all 10 statuses */}
                         <div className="bg-white p-4 rounded-xl shadow-sm mb-6 overflow-x-auto">
-                            <h2 className="font-bold text-gray-800 mb-3">Live Agent Call Tracking (All 8 Outcomes)</h2>
+                            <h2 className="font-bold text-gray-800 mb-3">Live Agent Call Tracking (All 10 Outcomes)</h2>
                             <table className="w-full text-xs sm:text-sm text-left border-collapse">
                                 <thead>
                                     <tr className="border-b bg-gray-50 text-gray-600 uppercase text-[11px]">
@@ -301,12 +303,15 @@
                                         <th className="p-2 text-orange-600">Busy</th>
                                         <th className="p-2 text-orange-600">Follow-Up</th>
                                         <th className="p-2">Not Int.</th>
-                                        <th className="p-2 text-green-700">Said YES</th>
+                                        <th className="p-2 text-green-700">Confirm</th>
+                                        <th className="p-2 text-green-700">Reconfirm</th>
+                                        <th className="p-2 text-green-700">Seminar</th>
+                                        <th className="p-2 text-blue-800">Joined</th>
                                         <th className="p-2 text-blue-800">Partner</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {["Nusrat", "Jannat", "Tanvir", "Unassigned"].map(ag => {
+                                    {["Nusrat", "Hasan", "Russel", "Unassigned"].map(ag => {
                                         const agTotal = leads.filter(l => l.agent === ag).length;
                                         if (ag === "Unassigned" && agTotal === 0) return null;
                                         return (
@@ -319,7 +324,10 @@
                                                 <td className="p-2 text-orange-600 font-semibold">{countBy(ag, ["Busy Right Now"])}</td>
                                                 <td className="p-2 text-orange-600 font-semibold">{countBy(ag, ["Needs Follow-Up"])}</td>
                                                 <td className="p-2 text-gray-500">{countBy(ag, ["Not Interested"])}</td>
-                                                <td className="p-2 text-green-700 font-bold">{countBy(ag, ["Said Yes to Join Seminar"])}</td>
+                                                <td className="p-2 text-green-700 font-bold">{countBy(ag, ["Confirm"])}</td>
+                                                <td className="p-2 text-green-700">{countBy(ag, ["Reconfirm"])}</td>
+                                                <td className="p-2 text-green-700">{countBy(ag, ["Seminar"])}</td>
+                                                <td className="p-2 text-blue-800">{countBy(ag, ["Joined Seminar"])}</td>
                                                 <td className="p-2 text-blue-800 font-bold">{countBy(ag, ["Paying Partner"])}</td>
                                             </tr>
                                         );
@@ -342,8 +350,8 @@
                                     <input type="number" step="0.01" value={nusratSpend} onChange={e => { setNusratSpend(e.target.value); localStorage.setItem("pd_nusrat_spend", e.target.value); }} className="w-full bg-gray-800 border border-gray-700 rounded p-1.5 text-white font-bold" />
                                 </div>
                                 <div>
-                                    <label className="text-gray-400 block mb-1">Jannat Campaign Spend ($ USD)</label>
-                                    <input type="number" step="0.01" value={jannatSpend} onChange={e => { setJannatSpend(e.target.value); localStorage.setItem("pd_jannat_spend", e.target.value); }} className="w-full bg-gray-800 border border-gray-700 rounded p-1.5 text-white font-bold" />
+                                    <label className="text-gray-400 block mb-1">Hasan Campaign Spend ($ USD)</label>
+                                    <input type="number" step="0.01" value={hasanSpend} onChange={e => { setHasanSpend(e.target.value); localStorage.setItem("pd_hasan_spend", e.target.value); }} className="w-full bg-gray-800 border border-gray-700 rounded p-1.5 text-white font-bold" />
                                 </div>
                             </div>
                             <pre className="text-xs text-gray-200 font-mono whitespace-pre-wrap bg-gray-800 p-3 rounded-lg border border-gray-700">
@@ -354,12 +362,12 @@
                 );
             }
 
-            // 4. AGENT VIEW (Nusrat, Jannat, Tanvir)
+            // 4. AGENT VIEW (Nusrat, Hasan, Russel)
             const counts = {
                 newLeads: leads.filter(l => l.status === "New Leads").length,
                 followUp: leads.filter(l => followUpGroup.includes(l.status)).length,
                 notAnswered: leads.filter(l => l.status === "Not Answered").length,
-                seminarYes: leads.filter(l => l.status === "Said Yes to Join Seminar" || l.status === "Joined Seminar" || l.status === "Paying Partner").length
+                seminarYes: leads.filter(l => l.status === "Confirm" || l.status === "Reconfirm" || l.status === "Seminar" || l.status === "Joined Seminar" || l.status === "Paying Partner").length
             };
 
             const filteredLeads = leads.filter(l => {
@@ -370,7 +378,7 @@
                 if (activeTab === "New Leads") return l.status === "New Leads";
                 if (activeTab === "Follow-Up") return followUpGroup.includes(l.status);
                 if (activeTab === "Not Answered") return l.status === "Not Answered";
-                if (activeTab === "Seminar Yes") return l.status === "Said Yes to Join Seminar" || l.status === "Joined Seminar" || l.status === "Paying Partner";
+                if (activeTab === "Confirmed") return l.status === "Confirm" || l.status === "Reconfirm" || l.status === "Seminar" || l.status === "Joined Seminar" || l.status === "Paying Partner";
                 if (activeTab === "Not Interested") return l.status === "Not Interested";
                 return true;
             });
@@ -406,8 +414,8 @@
                             <p className="text-[10px] uppercase font-bold">No Ans</p>
                             <p className="text-lg font-extrabold">{counts.notAnswered}</p>
                         </button>
-                        <button onClick={() => setActiveTab("Seminar Yes")} className={`p-2 rounded-xl text-center border transition ${activeTab === "Seminar Yes" ? "bg-green-600 text-white border-green-600 shadow" : "bg-white text-green-700 border-green-200"}`}>
-                            <p className="text-[10px] uppercase font-bold">Said Yes</p>
+                        <button onClick={() => setActiveTab("Confirmed")} className={`p-2 rounded-xl text-center border transition ${activeTab === "Confirmed" ? "bg-green-600 text-white border-green-600 shadow" : "bg-white text-green-700 border-green-200"}`}>
+                            <p className="text-[10px] uppercase font-bold">Confirmed</p>
                             <p className="text-lg font-extrabold">{counts.seminarYes}</p>
                         </button>
                     </div>
