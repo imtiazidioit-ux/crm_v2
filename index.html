@@ -235,7 +235,7 @@
                     .sort((a, b) => new Date(a.createdTime) - new Date(b.createdTime));
                 const yesterdayTotal = ["Nusrat", "Hasan", "Russel"].reduce((sum, ag) => sum + yesterdayByAgent(ag).length, 0);
 
-                // Weekly Summary — weeks run Friday 12:01 AM to Thursday 11:59 PM (Asia/Dhaka).
+                // Weekly Summary — weeks run Thursday 12:01 AM to Wednesday 11:59 PM (Asia/Dhaka).
                 // Total = leads created that week for the agent. Confirmed / Reconfirmed /
                 // Joined / Closed = leads now at that stage whose last update fell in that week.
                 const BD_SHIFT = 6 * 60 * 60 * 1000;
@@ -243,14 +243,14 @@
                 const weekStartBd = (bdMs) => {
                     const d = new Date(bdMs);
                     const midnight = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
-                    return midnight - ((d.getUTCDay() - 5 + 7) % 7) * 86400000 + 60000;
+                    return midnight - ((d.getUTCDay() - 4 + 7) % 7) * 86400000 + 60000;
                 };
                 const curWeekStart = weekStartBd(Date.now() + BD_SHIFT);
                 const prevWeekStart = curWeekStart - 7 * 86400000;
                 const inWeek = (iso, ws) => { const t = bdTime(iso); return t !== null && t >= ws && t < ws + 7 * 86400000; };
                 const weekLabel = (ws) => {
                     const f = (ms) => new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" }).format(new Date(ms));
-                    return `Fri ${f(ws)} – Thu ${f(ws + 6 * 86400000)}`;
+                    return `Thu ${f(ws)} – Wed ${f(ws + 6 * 86400000)}`;
                 };
                 const weeklyRows = (ws) => ["Nusrat", "Hasan", "Russel"].map(ag => {
                     const total = leads.filter(l => l.agent === ag && inWeek(l.createdTime, ws)).length;
@@ -387,7 +387,7 @@
                             })}
                         </div>
 
-                        {/* Weekly Summary — Fri 12:01 AM to Thu 11:59 PM (Dhaka), same table as the Weekly Seminar Funnel sheet */}
+                        {/* Weekly Summary — Thu 12:01 AM to Wed 11:59 PM (Dhaka), same table as the Weekly Seminar Funnel sheet */}
                         {[
                             { ws: curWeekStart, title: `📅 This Week — ${weekLabel(curWeekStart)}` },
                             { ws: prevWeekStart, title: `📅 Last Week — ${weekLabel(prevWeekStart)}` }
@@ -397,7 +397,7 @@
                             return (
                                 <div key={title} className="bg-white p-4 rounded-xl shadow-sm mb-6 overflow-x-auto">
                                     <h2 className="font-bold text-gray-800 mb-1">{title}</h2>
-                                    <p className="text-xs text-gray-500 mb-3">Week runs Friday 12:01 AM to Thursday 11:59 PM (Dhaka time). Closed = became a Paying Partner.</p>
+                                    <p className="text-xs text-gray-500 mb-3">Week runs Thursday 12:01 AM to Wednesday 11:59 PM (Dhaka time). Closed = became a Paying Partner.</p>
                                     <table className="w-full text-xs sm:text-sm text-left border-collapse">
                                         <thead>
                                             <tr className="border-b bg-gray-50 text-gray-600 uppercase text-[11px]">
