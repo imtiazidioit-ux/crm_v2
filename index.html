@@ -235,6 +235,32 @@
                     .sort((a, b) => new Date(a.createdTime) - new Date(b.createdTime));
                 const yesterdayTotal = ["Nusrat", "Hasan", "Russel"].reduce((sum, ag) => sum + yesterdayByAgent(ag).length, 0);
 
+                // Weekly Summary — weeks run Friday 12:01 AM to Thursday 11:59 PM (Asia/Dhaka).
+                // Total = leads created that week for the agent. Confirmed / Reconfirmed /
+                // Joined / Closed = leads now at that stage whose last update fell in that week.
+                const BD_SHIFT = 6 * 60 * 60 * 1000;
+                const bdTime = (iso) => { const t = iso ? new Date(iso).getTime() : NaN; return isNaN(t) ? null : t + BD_SHIFT; };
+                const weekStartBd = (bdMs) => {
+                    const d = new Date(bdMs);
+                    const midnight = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+                    return midnight - ((d.getUTCDay() - 5 + 7) % 7) * 86400000 + 60000;
+                };
+                const curWeekStart = weekStartBd(Date.now() + BD_SHIFT);
+                const prevWeekStart = curWeekStart - 7 * 86400000;
+                const inWeek = (iso, ws) => { const t = bdTime(iso); return t !== null && t >= ws && t < ws + 7 * 86400000; };
+                const weekLabel = (ws) => {
+                    const f = (ms) => new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric" }).format(new Date(ms));
+                    return `Fri ${f(ws)} – Thu ${f(ws + 6 * 86400000)}`;
+                };
+                const weeklyRows = (ws) => ["Nusrat", "Hasan", "Russel"].map(ag => {
+                    const total = leads.filter(l => l.agent === ag && inWeek(l.createdTime, ws)).length;
+                    const st = (s) => leads.filter(l => l.agent === ag && l.status === s && inWeek(l.lastUpdated, ws)).length;
+                    const confirmed = st("Confirm"), reconfirmed = st("Reconfirm"), joined = st("Joined Seminar"), closed = st("Paying Partner");
+                    return { ag, total, confirmed, reconfirmed, joined, closed,
+                        confPct: total ? Math.round(confirmed / total * 100) : 0,
+                        joinPct: total ? Math.round(joined / total * 100) : 0 };
+                });
+
                 const nSpend = parseFloat(nusratSpend) || 0;
                 const jSpend = parseFloat(hasanSpend) || 0;
                 const totalSpend = nSpend + jSpend;
@@ -360,6 +386,59 @@
                                 );
                             })}
                         </div>
+
+                        {/* Weekly Summary — Fri 12:01 AM to Thu 11:59 PM (Dhaka), same table as the Weekly Seminar Funnel sheet */}
+                        {[
+                            { ws: curWeekStart, title: `📅 This Week — ${weekLabel(curWeekStart)}` },
+                            { ws: prevWeekStart, title: `📅 Last Week — ${weekLabel(prevWeekStart)}` }
+                        ].map(({ ws, title }) => {
+                            const rows = weeklyRows(ws);
+                            const tot = rows.reduce((a, r) => ({ total: a.total + r.total, confirmed: a.confirmed + r.confirmed, reconfirmed: a.reconfirmed + r.reconfirmed, joined: a.joined + r.joined, closed: a.closed + r.closed }), { total: 0, confirmed: 0, reconfirmed: 0, joined: 0, closed: 0 });
+                            return (
+                                <div key={title} className="bg-white p-4 rounded-xl shadow-sm mb-6 overflow-x-auto">
+                                    <h2 className="font-bold text-gray-800 mb-1">{title}</h2>
+                                    <p className="text-xs text-gray-500 mb-3">Week runs Friday 12:01 AM to Thursday 11:59 PM (Dhaka time). Closed = became a Paying Partner.</p>
+                                    <table className="w-full text-xs sm:text-sm text-left border-collapse">
+                                        <thead>
+                                            <tr className="border-b bg-gray-50 text-gray-600 uppercase text-[11px]">
+                                                <th className="p-2">Agent</th>
+                                                <th className="p-2">Total Leads</th>
+                                                <th className="p-2 text-green-700">Confirmed</th>
+                                                <th className="p-2 text-teal-700">Reconfirmed</th>
+                                                <th className="p-2 text-blue-800">Joined</th>
+                                                <th className="p-2 text-indigo-800">Closed</th>
+                                                <th className="p-2">Confirmed %</th>
+                                                <th className="p-2">Joined %</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {rows.map(r => (
+                                                <tr key={r.ag} className="border-b hover:bg-gray-50">
+                                                    <td className="p-2 font-bold text-gray-900">{r.ag}</td>
+                                                    <td className="p-2 font-bold">{r.total}</td>
+                                                    <td className="p-2 text-green-700 font-bold">{r.confirmed}</td>
+                                                    <td className="p-2 text-teal-700 font-semibold">{r.reconfirmed}</td>
+                                                    <td className="p-2 text-blue-800 font-bold">{r.joined}</td>
+                                                    <td className="p-2 text-indigo-800 font-bold">{r.closed}</td>
+                                                    <td className="p-2">{r.confPct}%</td>
+                                                    <td className="p-2">{r.joinPct}%</td>
+                                                </tr>
+                                            ))}
+                                            <tr className="bg-gray-50 font-bold text-gray-900">
+                                                <td className="p-2">Total</td>
+                                                <td className="p-2">{tot.total}</td>
+                                                <td className="p-2 text-green-700">{tot.confirmed}</td>
+                                                <td className="p-2 text-teal-700">{tot.reconfirmed}</td>
+                                                <td className="p-2 text-blue-800">{tot.joined}</td>
+                                                <td className="p-2 text-indigo-800">{tot.closed}</td>
+                                                <td className="p-2">{tot.total ? Math.round(tot.confirmed / tot.total * 100) : 0}%</td>
+                                                <td className="p-2">{tot.total ? Math.round(tot.joined / tot.total * 100) : 0}%</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            );
+                        })}
 
                         {/* 3-Agent Scoreboard across all 10 statuses */}
                         <div className="bg-white p-4 rounded-xl shadow-sm mb-6 overflow-x-auto">
