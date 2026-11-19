@@ -318,75 +318,6 @@
                             </div>
                         </div>
 
-                        {/* Top Summary Cards */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-                            <div className="bg-white p-3 rounded-xl shadow-sm border-l-4 border-red-500">
-                                <p className="text-xs text-gray-500 font-bold uppercase">New (Untouched)</p>
-                                <p className="text-2xl font-extrabold text-red-600">{totalNew}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl shadow-sm border-l-4 border-orange-500">
-                                <p className="text-xs text-gray-500 font-bold uppercase">Follow-Up Pool</p>
-                                <p className="text-2xl font-extrabold text-orange-600">{totalFollowUpPool}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl shadow-sm border-l-4 border-green-600">
-                                <p className="text-xs text-gray-500 font-bold uppercase">Confirmed (Seminar)</p>
-                                <p className="text-2xl font-extrabold text-green-700">{totalYes}</p>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl shadow-sm border-l-4 border-blue-700">
-                                <p className="text-xs text-gray-500 font-bold uppercase">Paying Partners</p>
-                                <p className="text-2xl font-extrabold text-blue-900">{totalPartners}</p>
-                            </div>
-                        </div>
-
-                        {/* Yesterday's Leads — one table per agent */}
-                        <div className="bg-white p-4 rounded-xl shadow-sm mb-6">
-                            <h2 className="font-bold text-gray-800 mb-1">🗓️ Yesterday's Leads — {yesterdayLabel}</h2>
-                            <p className="text-xs text-gray-500 mb-3">{yesterdayTotal} new leads arrived yesterday (Dhaka time). Updates automatically every day.</p>
-                            {[
-                                { name: "Nusrat", color: "bg-blue-600" },
-                                { name: "Hasan", color: "bg-violet-600" },
-                                { name: "Russel", color: "bg-cyan-600" }
-                            ].map(({ name, color }) => {
-                                const rows = yesterdayByAgent(name);
-                                return (
-                                    <div key={name} className="mb-4 last:mb-0">
-                                        <div className={`${color} text-white text-sm font-bold px-3 py-1.5 rounded-lg flex justify-between`}>
-                                            <span>🎧 {name}</span>
-                                            <span>{rows.length} lead{rows.length === 1 ? "" : "s"}</span>
-                                        </div>
-                                        {rows.length === 0 ? (
-                                            <p className="text-xs text-gray-400 italic px-3 py-2">No leads yesterday.</p>
-                                        ) : (
-                                            <div className="max-h-64 overflow-y-auto">
-                                                <table className="w-full text-xs sm:text-sm text-left border-collapse">
-                                                    <thead>
-                                                        <tr className="border-b bg-gray-50 text-gray-600 uppercase text-[11px]">
-                                                            <th className="p-2">Time</th>
-                                                            <th className="p-2">Name</th>
-                                                            <th className="p-2">Phone</th>
-                                                            <th className="p-2">Campaign</th>
-                                                            <th className="p-2">Status</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {rows.map(l => (
-                                                            <tr key={l.id} className="border-b hover:bg-gray-50">
-                                                                <td className="p-2 whitespace-nowrap text-gray-500">{formatDhakaDate(l.createdTime)}</td>
-                                                                <td className="p-2 font-semibold text-gray-900">{l.name || "Unknown"}</td>
-                                                                <td className="p-2 font-mono text-blue-600">{l.phone}</td>
-                                                                <td className="p-2 text-gray-500 max-w-[140px] truncate">{l.campaign || l.sourceSheet || ""}</td>
-                                                                <td className="p-2"><span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${statusBadge[l.status] || "bg-gray-100 text-gray-700"}`}>{l.status}</span></td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-
                         {/* Weekly Summary — Thu 12:01 AM to Wed 11:59 PM (Dhaka), same table as the Weekly Seminar Funnel sheet */}
                         {[
                             { ws: curWeekStart, title: `📅 This Week — ${weekLabel(curWeekStart)}` },
@@ -439,53 +370,6 @@
                                 </div>
                             );
                         })}
-
-                        {/* 3-Agent Scoreboard across all 10 statuses */}
-                        <div className="bg-white p-4 rounded-xl shadow-sm mb-6 overflow-x-auto">
-                            <h2 className="font-bold text-gray-800 mb-3">Live Agent Call Tracking (All 10 Outcomes)</h2>
-                            <table className="w-full text-xs sm:text-sm text-left border-collapse">
-                                <thead>
-                                    <tr className="border-b bg-gray-50 text-gray-600 uppercase text-[11px]">
-                                        <th className="p-2">Agent</th>
-                                        <th className="p-2">Total</th>
-                                        <th className="p-2 text-red-600">New</th>
-                                        <th className="p-2">No Ans</th>
-                                        <th className="p-2 text-orange-600">Call Later</th>
-                                        <th className="p-2 text-orange-600">Busy</th>
-                                        <th className="p-2 text-orange-600">Follow-Up</th>
-                                        <th className="p-2">Not Int.</th>
-                                        <th className="p-2 text-green-700">Confirm</th>
-                                        <th className="p-2 text-green-700">Reconfirm</th>
-                                        <th className="p-2 text-green-700">Seminar</th>
-                                        <th className="p-2 text-blue-800">Joined</th>
-                                        <th className="p-2 text-blue-800">Partner</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {["Nusrat", "Hasan", "Russel", "Unassigned"].map(ag => {
-                                        const agTotal = leads.filter(l => l.agent === ag).length;
-                                        if (ag === "Unassigned" && agTotal === 0) return null;
-                                        return (
-                                            <tr key={ag} className="border-b hover:bg-gray-50">
-                                                <td className="p-2 font-bold text-gray-900">{ag}</td>
-                                                <td className="p-2 font-bold">{agTotal}</td>
-                                                <td className="p-2 text-red-600 font-bold">{countBy(ag, ["New Leads"])}</td>
-                                                <td className="p-2">{countBy(ag, ["Not Answered"])}</td>
-                                                <td className="p-2 text-orange-600 font-semibold">{countBy(ag, ["Asked to Call Later"])}</td>
-                                                <td className="p-2 text-orange-600 font-semibold">{countBy(ag, ["Busy Right Now"])}</td>
-                                                <td className="p-2 text-orange-600 font-semibold">{countBy(ag, ["Needs Follow-Up"])}</td>
-                                                <td className="p-2 text-gray-500">{countBy(ag, ["Not Interested"])}</td>
-                                                <td className="p-2 text-green-700 font-bold">{countBy(ag, ["Confirm"])}</td>
-                                                <td className="p-2 text-green-700">{countBy(ag, ["Reconfirm"])}</td>
-                                                <td className="p-2 text-green-700">{countBy(ag, ["Seminar"])}</td>
-                                                <td className="p-2 text-blue-800">{countBy(ag, ["Joined Seminar"])}</td>
-                                                <td className="p-2 text-blue-800 font-bold">{countBy(ag, ["Paying Partner"])}</td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
 
                         {/* Plain-Language Boss Report Generator */}
                         <div className="bg-gray-900 text-white p-5 rounded-xl shadow-md">
